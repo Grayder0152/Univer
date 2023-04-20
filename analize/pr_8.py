@@ -7,8 +7,10 @@ from scipy import stats
 class AnalysisCorrelation:
     """Аналіз кореляційного поля. Оцінення коєф. кореляції Пірсона"""
 
+    t_st = 2.10  # n = 20
+    u = 1.96
+
     def __init__(self, x: tuple, y: tuple):
-        self.u = 1.96
         self.N = len(x)
         self.x_mean = self.mean(x)
         self.y_mean = self.mean(y)
@@ -25,6 +27,11 @@ class AnalysisCorrelation:
         r = self.r + (self.r * (1 - self.r ** 2)) / (2 * self.N)
         return r - k, r + k
 
+    def __str__(self):
+        if abs(self.t) <= self.t_st:
+            return "Лінійний зв'язок між показниками відсутній."
+        return "Між показниками існує ліінйний зв'язок."
+
     @staticmethod
     def mean(seq: tuple) -> float:
         return sum(seq) / len(seq)
@@ -40,11 +47,11 @@ if __name__ == '__main__':
         61.4, 60.9, 70.5, 63.3, 57.1, 47.2, 45.4, 44.5, 43.8, 43.7
     )
     ac = AnalysisCorrelation(X, Y)
-    print(ac.r, ac.t)
-    # df = pd.DataFrame({
-    #     'x': X,
-    #     'y': Y
-    # })
-    # sns.scatterplot(x="x", y="y", data=df)
-    # plt.show()
-    print(stats.pearsonr(X, Y).statistic, stats.pearsonr(X, Y).pvalue)
+    print(ac)
+    df = pd.DataFrame({
+        'x': X,
+        'y': Y
+    })
+    sns.scatterplot(x="x", y="y", data=df)
+    plt.show()
+    # print(stats.pearsonr(X, Y).statistic, stats.pearsonr(X, Y).pvalue)
