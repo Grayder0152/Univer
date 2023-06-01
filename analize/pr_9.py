@@ -113,6 +113,10 @@ class SpearmanRankCorrelation(RankCorrelation):
             return "Між показниками ВІДСУТНЯ монотонна залежність!(за Спірмена)"
         return "Між показниками ІСНУЄ монотонна залежність!(за Спірмена)"
 
+    def show_result(self) -> str:
+        result = f"""Коефіцієнт Спірмена(r) = {self.coeff}\nСтатистика(t) = {self.t}"""
+        return result
+
 
 class KendallRankCorrelation(RankCorrelation):
     def __init__(self, x: list, y: list):
@@ -179,29 +183,23 @@ class KendallRankCorrelation(RankCorrelation):
             return "Між показниками ВІДСУТНЯ монотонна залежність!(за Кенделла)"
         return "Між показниками ІСНУЄ монотонна залежність!(за Кенделла)"
 
+    def show_result(self) -> str:
+        result = f"""Коефіцієнт Кенделла(r) = {self.coeff}\nСтатистика(u) = {self.u}"""
+        return result
+
 
 if __name__ == '__main__':
-    # X = [
-    #     2675.7, 2437.1, 1938.3, 2149.2, 2254.5, 1964.0, 1911.4, 1888.3,
-    #     1637.4, 1666.2, 1618.4, 2361.4, 1983.8, 1917.1, 1758.3,
-    # ]
-    # Y = [
-    #     190.4, 156.4, 170.3, 174.5, 191.3, 188.5, 167.0, 191.6,
-    #     145.3, 138.2, 151.8, 222.6, 172.0, 138.2, 173.6,
-    # ]
-    X = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-        12, 13, 14, 15, 16, 17, 18, 19, 20
-    ]
-    Y = [
-        93.1, 92, 87.3, 91.4, 81.8, 76.1, 74.5, 77.4, 74.4, 64.7,
-        61.4, 60.9, 70.5, 63.3, 57.1, 47.2, 45.4, 44.5, 43.8, 43.7
-    ]
+    from data import X, Y
 
+    print("За Спірмена")
     s = SpearmanRankCorrelation(X, Y)
     s.calc()
+    print(s.show_result())
     print(s)
 
+    print()
+    print("За Кендела")
     k = KendallRankCorrelation(X, Y)
     k.calc()
+    print(k.show_result())
     print(k)

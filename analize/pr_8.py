@@ -1,16 +1,17 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy import stats
 
 
 class AnalysisCorrelation:
     """Аналіз кореляційного поля. Оцінення коєф. кореляції Пірсона"""
 
-    t_st = 2.10  # n = 20
+    # t_st = 2.10  # n = 20
+    t_st = 2.16  # n = 15
+
     u = 1.96
 
-    def __init__(self, x: tuple, y: tuple):
+    def __init__(self, x: list, y: list):
         self.N = len(x)
         self.x_mean = self.mean(x)
         self.y_mean = self.mean(y)
@@ -33,25 +34,26 @@ class AnalysisCorrelation:
         return "Між показниками існує ліінйний зв'язок."
 
     @staticmethod
-    def mean(seq: tuple) -> float:
+    def mean(seq: list) -> float:
         return sum(seq) / len(seq)
+
+    def show_result(self) -> str:
+        result = f"""
+        Коефіцієнт Пірсона(r) = {self.r}
+        Статистика(t) = {self.t}
+        Інтервальна оцінка = {self.get_interval()}
+        """
+        return result
 
 
 if __name__ == '__main__':
-    X = (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-        12, 13, 14, 15, 16, 17, 18, 19, 20
-    )
-    Y = (
-        93.1, 92, 87.3, 91.4, 81.8, 76.1, 74.5, 77.4, 74.4, 64.7,
-        61.4, 60.9, 70.5, 63.3, 57.1, 47.2, 45.4, 44.5, 43.8, 43.7
-    )
+    from data import X, Y
+
     ac = AnalysisCorrelation(X, Y)
-    print(ac)
+    print(ac.show_result())
     df = pd.DataFrame({
         'x': X,
         'y': Y
     })
     sns.scatterplot(x="x", y="y", data=df)
     plt.show()
-    # print(stats.pearsonr(X, Y).statistic, stats.pearsonr(X, Y).pvalue)
