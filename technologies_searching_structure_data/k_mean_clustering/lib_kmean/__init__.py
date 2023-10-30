@@ -1,8 +1,14 @@
 from pyspark.ml.clustering import KMeans
 from pyspark.ml.feature import StandardScaler, VectorAssembler
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 from base_kmean import BaseKMean
+
+spark = (
+    SparkSession.builder.master("local[*]")
+    .appName("K-mean")
+    .getOrCreate()
+)
 
 
 class KMean(BaseKMean):
@@ -27,5 +33,8 @@ class KMean(BaseKMean):
         data = scaler_model.transform(data)
         model = kmeans.fit(data)
 
-        self.last_centroids = model.clusterCenters()
-        self.last_clustered_data = model.transform(data)
+        self.centroids = spark.createDataFrame(
+            [[id_, *c.tolist()] for id_, c in enumerate(model.clusterCenters())],
+            schema=[self.cluster_col_name, *self.columns_params]
+        )
+        self.clustered_data = model.transform(data)

@@ -79,12 +79,8 @@ class KMeanManager:
         axis[1].set_xlabel(param_1)
         axis[1].set_ylabel(param_2)
         if with_centroids:
-            if isinstance(self.current_k_mean.last_centroids, list):
-                centroids = self.current_k_mean.last_centroids
-                axis[1].scatter([center[0] for center in centroids], [center[1] for center in centroids], s=70)
-            else:
-                centroids = self.current_k_mean.last_centroids.toPandas()
-                axis[1].scatter(centroids[param_1], centroids[param_2], s=70)
+            centroids = self.current_k_mean.centroids.toPandas()
+            axis[1].scatter(centroids[param_1], centroids[param_2], s=70)
 
         plt.show()
 
@@ -94,7 +90,7 @@ class KMeanManager:
         if set(args) - set(self.current_k_mean.columns_params):
             raise ValueError(f"Some of parameters: {args} not contain in {self.current_k_mean.columns_params}")
 
-        clustered_data_pd = self.current_k_mean.last_clustered_data.toPandas()
+        clustered_data_pd = self.current_k_mean.clustered_data.toPandas()
         figure, axis = plt.subplots(2, 1)
         figure.suptitle('Clustering by KMean')
         axis[0].set_title('Before clustering')
@@ -110,7 +106,7 @@ class KMeanManager:
 
     def get_clusters_statistic(self) -> DataFrame:
         return (
-            self.current_k_mean.last_clustered_data
+            self.current_k_mean.clustered_data
             .select(*self.current_k_mean.columns_params, self.current_k_mean.cluster_col_name)
             .unpivot(self.current_k_mean.cluster_col_name, self.current_k_mean.columns_params, "param", "value")
             .groupBy(self.current_k_mean.cluster_col_name)
@@ -135,7 +131,7 @@ class KMeanManager:
         for k in range(min_k, max_k):
             kmeans.k = k
             kmeans.clustering()
-            score = evaluator.evaluate(kmeans.last_clustered_data)
+            score = evaluator.evaluate(kmeans.clustered_data)
             silhouette_score.append(score)
             print(f'Silhouette Score for k = {k} is {score}')
         kmeans.k = current_k
@@ -163,8 +159,7 @@ if __name__ == '__main__':
         k=3,
         pk_col_name='person_id',
         columns_params=['t32', 't33']
-
     )
     k_mean.clustering('lib')
-    k_mean.show('t32', 't33')
+    k_mean.show('t32', 't33', with_centroids=True)
     spark.stop()

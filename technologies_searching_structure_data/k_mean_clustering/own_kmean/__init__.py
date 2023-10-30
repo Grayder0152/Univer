@@ -31,22 +31,47 @@ class KMean(BaseKMean):
             self.data, k, pk_col_name, columns_params
         )
 
+    def get_new_centroids(self) -> DataFrame:
+        return (
+            self.clustered_data
+            .groupBy(self.cluster_col_name)
+            .agg(
+                *[f.mean(param).alias(param) for param in self.columns_params]
+            )
+        )
+
+    def check_centroids_eq(self, new_centroids: DataFrame) -> bool:
+        old_centroids = self.centroids.sort(self.cluster_col_name).collect()
+        new_centroids = new_centroids.sort(self.cluster_col_name).collect()
+        for i in range(self.k):
+            if old_centroids[i] != new_centroids[i]:
+                return False
+        return True
+
     def clustering(self):
         distance_udf = f.udf(lambda point_1, point_2: float(distance.euclidean(point_1, point_2)), FloatType())
         window = Window.partitionBy(self.pk_col_name).orderBy('distance')
 
-        self.last_centroids = (
+        self.centroids = (
             self.centroid_method.get_centroids()
-            .select(f.col(self.pk_col_name).alias(self.cluster_col_name), *self.columns_params)
+            .select(f.monotonically_increasing_id().alias(self.cluster_col_name), *self.columns_params)
         )
-        self.last_clustered_data = (
-            self.data
-            .crossJoin(
-                self.last_centroids
-                .withColumn('centroid_coords', f.array(*self.columns_params))
-                .drop(*self.columns_params)
-            ).withColumn('distance', distance_udf('coords', 'centroid_coords'))
-            .withColumn('row', f.row_number().over(window))
-            .where(f.col('row') == 1)
-            .select(self.pk_col_name, *self.columns_params, self.cluster_col_name)
-        )
+
+        while True:
+            self.clustered_data = (
+                self.data
+                .crossJoin(
+                    self.centroids
+                    .withColumn('centroid_coords', f.array(*self.columns_params))
+                    .drop(*self.columns_params)
+                ).withColumn('distance', distance_udf('coords', 'centroid_coords'))
+                .withColumn('row', f.row_number().over(window))
+                .where(f.col('row') == 1)
+                .select(self.pk_col_name, *self.columns_params, self.cluster_col_name)
+            )
+
+            new_centroids = self.get_new_centroids()
+            if self.check_centroids_eq(new_centroids):
+                break
+            self.centroids = new_centroids
+

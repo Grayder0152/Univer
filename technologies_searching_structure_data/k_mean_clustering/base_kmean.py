@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from pyspark.sql import DataFrame
 
@@ -16,8 +17,8 @@ class BaseKMean(ABC):
         self.pk_col_name: str = pk_col_name
         self.columns_params: list[str] = columns_params
 
-        self.last_centroids = None
-        self.last_clustered_data = None
+        self.centroids: Optional[DataFrame] = None
+        self.clustered_data: Optional[DataFrame] = None
 
     @property
     def columns_params(self):
