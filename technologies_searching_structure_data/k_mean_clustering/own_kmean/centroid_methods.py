@@ -18,21 +18,21 @@ class CentroidMethodName(Enum):
 class CentroidMethod(ABC):
     name: Optional[CentroidMethodName] = None
 
-    def __init__(self, data: DataFrame, k: int, pk_col_name: str, columns_params: list[str]):
+    def __init__(self, data: DataFrame, k: int, pk_col_name: str):
         self.data: DataFrame = data
         self.k: int = k
         self.pk_col_name = pk_col_name
-        self.columns_params = columns_params
 
     @abstractmethod
-    def get_centroids(self) -> DataFrame:
+    def get_centroids(self, params: list[str]) -> DataFrame:
         pass
 
 
 class KMeanPp(CentroidMethod):
     name = CentroidMethodName.K_MEAN_PP
 
-    def euclidean_distance(self) -> DataFrame:
+    def euclidean_distance(self, params: list[str]) -> DataFrame:
+        self.data = self.data.withColumn('coords', f.array(*params))
         df = (
             self.data
             .select(f.col(self.pk_col_name).alias('point_id'), 'coords')
@@ -51,8 +51,8 @@ class KMeanPp(CentroidMethod):
             )
         )
 
-    def get_centroids(self) -> DataFrame:
-        euclidean_distance_df = self.euclidean_distance()
+    def get_centroids(self, params: list[str]) -> DataFrame:
+        euclidean_distance_df = self.euclidean_distance(params)
         euclidean_distance_df = euclidean_distance_df.toPandas().set_index('point_id').T.to_dict('dict')
 
         centroids = [random.choice(list(euclidean_distance_df.keys())).split('_')[-1]]

@@ -9,27 +9,27 @@ class BaseKMean(ABC):
 
     def __init__(
             self, data: DataFrame, k: int,
-            pk_col_name: str, columns_params: list[str],
-            **kwargs
+            pk_col_name: str, **kwargs
     ):
-        self.data = data
+        self.data: DataFrame = data
         self.k: int = k
         self.pk_col_name: str = pk_col_name
-        self.columns_params: list[str] = columns_params
+        # self.columns_params: list[str] = columns_params
 
+        self.__params: Optional[list[str]] = None
         self.centroids: Optional[DataFrame] = None
         self.clustered_data: Optional[DataFrame] = None
 
     @property
-    def columns_params(self):
-        return self.__columns_params
+    def params(self) -> list[str]:
+        return self.__params
 
-    @columns_params.setter
-    def columns_params(self, value: list[str]):
+    @params.setter
+    def params(self, value: list[str]):
         if not isinstance(value, list) or len(value) < 2:
             raise ValueError('Column parameters must be a list with min 2 values.')
-        self.__columns_params = value
+        self.__params = value
 
     @abstractmethod
-    def clustering(self) -> None:
+    def clustering(self, params: list[str]) -> None:
         pass

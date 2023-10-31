@@ -17,28 +17,41 @@ from own_kmean import KMean as OwnKMean
 matplotlib.use('TkAgg')
 
 
+def find_best_k(data: DataFrame, pk_col_name: str, params: list[str], min_k: int = 2, max_k: int = 10):
+    silhouette_score = []
+    prediction_col = 'cluster'
+    evaluator = ClusteringEvaluator(
+        predictionCol=prediction_col,
+        featuresCol='scaled_data',
+        metricName='silhouette',
+        distanceMeasure='squaredEuclidean'
+    )
+    for k in range(min_k, max_k):
+        kmeans = LibKMean(data=data, k=k, pk_col_name=pk_col_name)
+        kmeans.clustering(params)
+        score = evaluator.evaluate(kmeans.clustered_data)
+        silhouette_score.append(score)
+        print(f'Silhouette Score for k = {k} is {score}')
+
+    plt.plot(list(range(min_k, max_k)), silhouette_score)
+    plt.xlabel('k')
+    plt.ylabel('silhouette score')
+    plt.title('Silhouette Score')
+    plt.show()
+
+
 class KMeanManager:
-    def __init__(self, data: DataFrame, k: int, pk_col_name: str, columns_params: list[str]):
+    def __init__(self, data: DataFrame, k: int, pk_col_name: str):
         self.k_mean_classes: dict[KMeantType, BaseKMean] = {
-            KMeantType.OWN: OwnKMean(
-                data=data,
-                k=k,
-                pk_col_name=pk_col_name,
-                columns_params=columns_params
-            ),
-            KMeantType.LIB: LibKMean(
-                data=data,
-                k=k,
-                pk_col_name=pk_col_name,
-                columns_params=columns_params
-            )
+            KMeantType.OWN: OwnKMean(data=data, k=k, pk_col_name=pk_col_name),
+            KMeantType.LIB: LibKMean(data=data, k=k, pk_col_name=pk_col_name)
         }
 
         self.current_k_mean: Optional[BaseKMean] = None
 
-    def clustering(self, k_mean_method: str):
+    def clustering(self, k_mean_method: str, params: list[str]):
         self.current_k_mean = self.k_mean_classes[KMeantType(k_mean_method)]
-        self.current_k_mean.clustering()
+        self.current_k_mean.clustering(params)
 
     def _parallel_coordinates(self, columns: list[str], clustered_data_pd: pd.DataFrame, axis: list[Axes]):
         df = clustered_data_pd[::]
@@ -84,31 +97,26 @@ class KMeanManager:
 
         plt.show()
 
-    def show(self, *args, with_centroids: bool = False):
-        if len(args) < 2:
-            raise ValueError("Must minimum 2 parameters")
-        if set(args) - set(self.current_k_mean.columns_params):
-            raise ValueError(f"Some of parameters: {args} not contain in {self.current_k_mean.columns_params}")
-
+    def show(self, with_centroids: bool = False):
         clustered_data_pd = self.current_k_mean.clustered_data.toPandas()
         figure, axis = plt.subplots(2, 1)
         figure.suptitle('Clustering by KMean')
         axis[0].set_title('Before clustering')
         axis[1].set_title('After clustering')
 
-        if len(args) == 2:
-            param_1, param_2 = args
+        if len(self.current_k_mean.params) == 2:
+            param_1, param_2 = self.current_k_mean.params
             self._dot_coordinates(param_1, param_2, clustered_data_pd, axis, with_centroids)
         else:
-            self._parallel_coordinates(list(args), clustered_data_pd, axis)
+            self._parallel_coordinates(self.current_k_mean.params, clustered_data_pd, axis)
 
         plt.show()
 
     def get_clusters_statistic(self) -> DataFrame:
         return (
             self.current_k_mean.clustered_data
-            .select(*self.current_k_mean.columns_params, self.current_k_mean.cluster_col_name)
-            .unpivot(self.current_k_mean.cluster_col_name, self.current_k_mean.columns_params, "param", "value")
+            .select(*self.current_k_mean.params, self.current_k_mean.cluster_col_name)
+            .unpivot(self.current_k_mean.cluster_col_name, self.current_k_mean.params, "param", "value")
             .groupBy(self.current_k_mean.cluster_col_name)
             .agg(
                 f.mean("value").alias("mean"),
@@ -116,30 +124,6 @@ class KMeanManager:
             )
             .orderBy(self.current_k_mean.cluster_col_name)
         )
-
-    def find_best_k(self, k_mean_method: str, min_k: int = 2, max_k: int = 6):
-        silhouette_score = []
-        prediction_col = 'cluster'
-        evaluator = ClusteringEvaluator(
-            predictionCol=prediction_col,
-            featuresCol='scaled_data',
-            metricName='silhouette',
-            distanceMeasure='squaredEuclidean'
-        )
-        kmeans = self.k_mean_classes[KMeantType(k_mean_method)]
-        current_k = kmeans.k
-        for k in range(min_k, max_k):
-            kmeans.k = k
-            kmeans.clustering()
-            score = evaluator.evaluate(kmeans.clustered_data)
-            silhouette_score.append(score)
-            print(f'Silhouette Score for k = {k} is {score}')
-        kmeans.k = current_k
-        plt.plot(list(range(min_k, max_k)), silhouette_score)
-        plt.xlabel('k')
-        plt.ylabel('silhouette score')
-        plt.title('Silhouette Score')
-        plt.show()
 
 
 if __name__ == '__main__':
@@ -157,9 +141,8 @@ if __name__ == '__main__':
     k_mean = KMeanManager(
         data=data,
         k=3,
-        pk_col_name='person_id',
-        columns_params=['t32', 't33']
+        pk_col_name='person_id'
     )
-    k_mean.clustering('lib')
-    k_mean.show('t32', 't33', with_centroids=True)
+    k_mean.clustering('own', ['t32', 't33'])
+    k_mean.show(with_centroids=True)
     spark.stop()

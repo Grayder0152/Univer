@@ -18,25 +18,17 @@ class KMean(BaseKMean):
 
     def __init__(
             self, data: DataFrame, k: int,
-            pk_col_name: str, columns_params: list[str],
-            centroid_method: str = 'k-mean++'
+            pk_col_name: str, centroid_method: str = 'k-mean++'
     ):
-        super().__init__(data, k, pk_col_name, columns_params)
-        self.data: DataFrame = (
-            self.data
-            .select(pk_col_name, *columns_params)
-            .withColumn('coords', f.array(*columns_params))
-        )
-        self.centroid_method: CentroidMethod = self.centroid_methods[CentroidMethodName(centroid_method)](
-            self.data, k, pk_col_name, columns_params
-        )
+        super().__init__(data, k, pk_col_name)
+        self.centroid_method = centroid_method
 
-    def get_new_centroids(self) -> DataFrame:
+    def get_new_centroids(self, params: list[str]) -> DataFrame:
         return (
             self.clustered_data
             .groupBy(self.cluster_col_name)
             .agg(
-                *[f.mean(param).alias(param) for param in self.columns_params]
+                *[f.mean(param).alias(param) for param in params]
             )
         )
 
@@ -48,13 +40,17 @@ class KMean(BaseKMean):
                 return False
         return True
 
-    def clustering(self):
+    def clustering(self, params: list[str]):
+        self.params = params
         distance_udf = f.udf(lambda point_1, point_2: float(distance.euclidean(point_1, point_2)), FloatType())
         window = Window.partitionBy(self.pk_col_name).orderBy('distance')
 
+        centroid_method: CentroidMethod = self.centroid_methods[CentroidMethodName(self.centroid_method)](
+            self.data, self.k, self.pk_col_name
+        )
         self.centroids = (
-            self.centroid_method.get_centroids()
-            .select(f.monotonically_increasing_id().alias(self.cluster_col_name), *self.columns_params)
+            centroid_method.get_centroids(params)
+            .select(f.monotonically_increasing_id().alias(self.cluster_col_name), *params)
         )
 
         while True:
@@ -62,16 +58,16 @@ class KMean(BaseKMean):
                 self.data
                 .crossJoin(
                     self.centroids
-                    .withColumn('centroid_coords', f.array(*self.columns_params))
-                    .drop(*self.columns_params)
-                ).withColumn('distance', distance_udf('coords', 'centroid_coords'))
+                    .withColumn('centroid_coords', f.array(*params))
+                    .drop(*params)
+                ).withColumn('coords', f.array(*params))
+                .withColumn('distance', distance_udf('coords', 'centroid_coords'))
                 .withColumn('row', f.row_number().over(window))
                 .where(f.col('row') == 1)
-                .select(self.pk_col_name, *self.columns_params, self.cluster_col_name)
+                .select(self.pk_col_name, *params, self.cluster_col_name)
             )
 
-            new_centroids = self.get_new_centroids()
+            new_centroids = self.get_new_centroids(params)
             if self.check_centroids_eq(new_centroids):
                 break
             self.centroids = new_centroids
-

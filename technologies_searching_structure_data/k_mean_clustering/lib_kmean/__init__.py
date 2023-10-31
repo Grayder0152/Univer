@@ -1,6 +1,6 @@
 from pyspark.ml.clustering import KMeans
 from pyspark.ml.feature import StandardScaler, VectorAssembler
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import SparkSession
 
 from base_kmean import BaseKMean
 
@@ -12,16 +12,11 @@ spark = (
 
 
 class KMean(BaseKMean):
-    def __init__(
-            self, data: DataFrame, k: int,
-            pk_col_name: str, columns_params: list[str]
-    ):
-        super().__init__(data, k, pk_col_name, columns_params)
-
-    def clustering(self) -> None:
+    def clustering(self, params: list[str]) -> None:
+        self.params = params
         kmeans = KMeans(featuresCol='scaled_data', predictionCol=self.cluster_col_name, k=self.k)
 
-        data = VectorAssembler(inputCols=self.columns_params, outputCol='vector_data').transform(self.data)
+        data = VectorAssembler(inputCols=params, outputCol='vector_data').transform(self.data)
 
         scaler = StandardScaler(
             inputCol="vector_data",
@@ -35,6 +30,6 @@ class KMean(BaseKMean):
 
         self.centroids = spark.createDataFrame(
             [[id_, *c.tolist()] for id_, c in enumerate(model.clusterCenters())],
-            schema=[self.cluster_col_name, *self.columns_params]
+            schema=[self.cluster_col_name, *params]
         )
         self.clustered_data = model.transform(data)
